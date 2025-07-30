@@ -143,7 +143,11 @@ class ApiClient {
   }
 }
 
-// Create and export a singleton instance
-const api = new ApiClient();
+// Create and export instances - both named and default exports for compatibility
+const apiClient = new ApiClient();
+const api = apiClient;
+
+// Export both ways to ensure compatibility with existing imports
+export { apiClient };
 export default api;
 
