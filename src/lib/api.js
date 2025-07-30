@@ -1,10 +1,10 @@
 /**
- * FIXED API utilities for production deployment
+ * FINAL FIXED API utilities for production deployment
  * Replace the existing src/lib/api.js with this version
  */
 
-// Use environment variable for API base URL, fallback to Railway production URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://web-production-f1d71.up.railway.app/api';
+// FIXED: Use the correct Railway production URL with /api prefix
+const API_BASE_URL = 'https://web-production-f1d71.up.railway.app/api';
 
 class ApiClient {
   constructor() {
@@ -33,6 +33,7 @@ class ApiClient {
   }
 
   async request(endpoint, options = {}) {
+    // FIXED: Properly construct the URL by concatenating base URL + endpoint
     const url = `${API_BASE_URL}${endpoint}`;
     
     const config = {
