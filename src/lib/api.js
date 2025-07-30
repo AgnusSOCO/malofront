@@ -1,8 +1,10 @@
 /**
- * API utilities for communicating with the loan platform backend
+ * Updated API utilities for production deployment
+ * Replace the existing src/lib/api.js with this version
  */
 
-const API_BASE_URL = '/api';
+// Use environment variable for API base URL, fallback to relative path
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 class ApiClient {
   constructor() {
