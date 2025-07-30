@@ -1,10 +1,10 @@
 /**
- * Updated API utilities for production deployment
+ * FIXED API utilities for production deployment
  * Replace the existing src/lib/api.js with this version
  */
 
-// Use environment variable for API base URL, fallback to relative path
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// Use environment variable for API base URL, fallback to Railway production URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://web-production-f1d71.up.railway.app/api';
 
 class ApiClient {
   constructor() {
@@ -24,78 +24,81 @@ class ApiClient {
     const headers = {
       'Content-Type': 'application/json',
     };
-    
+
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
     }
-    
+
     return headers;
   }
 
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    
     const config = {
       headers: this.getHeaders(),
       ...options,
     };
 
     try {
+      console.log(`Making API request to: ${url}`);
       const response = await fetch(url, config);
-      const data = await response.json();
-
+      
       if (!response.ok) {
-        throw new Error(data.message || 'API request failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      return data;
+      return await response.json();
     } catch (error) {
       console.error('API request error:', error);
       throw error;
     }
   }
 
-  // Authentication endpoints
+  // Authentication methods
   async login(email, password) {
-    const data = await this.request('/auth/login', {
+    const response = await this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    
-    if (data.token) {
-      this.setToken(data.token);
+
+    if (response.token) {
+      this.setToken(response.token);
     }
-    
-    return data;
+
+    return response;
   }
 
   async register(userData) {
-    const data = await this.request('/auth/register', {
+    const response = await this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
-    
-    if (data.token) {
-      this.setToken(data.token);
+
+    if (response.token) {
+      this.setToken(response.token);
     }
-    
-    return data;
+
+    return response;
   }
 
-  async getCurrentUser() {
-    return this.request('/auth/me');
+  logout() {
+    this.setToken(null);
   }
 
-  async changePassword(currentPassword, newPassword) {
-    return this.request('/auth/change-password', {
+  // Applicant methods
+  async getBanks() {
+    return this.request('/applicants/banks');
+  }
+
+  async saveCredentials(credentials) {
+    return this.request('/applicants/credentials', {
       method: 'POST',
-      body: JSON.stringify({
-        current_password: currentPassword,
-        new_password: newPassword,
-      }),
+      body: JSON.stringify(credentials),
     });
   }
 
-  // Applicant endpoints
   async getProfile() {
     return this.request('/applicants/profile');
   }
@@ -107,55 +110,17 @@ class ApiClient {
     });
   }
 
-  async getBanks() {
-    return this.request('/applicants/banks');
+  // Admin methods
+  async getApplicants() {
+    return this.request('/admin/applicants');
   }
 
-  async addBankCredentials(providerID, username, password) {
-    return this.request('/applicants/bank-credentials', {
-      method: 'POST',
-      body: JSON.stringify({
-        provider_id: providerID,
-        username,
-        password,
-      }),
-    });
+  async getApplicantCredentials(applicantId) {
+    return this.request(`/admin/applicants/${applicantId}/credentials`);
   }
 
-  async getBankCredentials() {
-    return this.request('/applicants/bank-credentials');
-  }
-
-  async deleteBankCredentials(credentialId) {
-    return this.request(`/applicants/bank-credentials/${credentialId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async getApplicationStatus() {
-    return this.request('/applicants/status');
-  }
-
-  // Admin endpoints
-  async getApplicants(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    return this.request(`/admin/applicants${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async getApplicantDetails(applicantId) {
-    return this.request(`/admin/applicants/${applicantId}`);
-  }
-
-  async approveApplicant(applicantId, contractScanUrl) {
-    return this.request(`/admin/applicants/${applicantId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ contract_scan_url: contractScanUrl }),
-    });
-  }
-
-  async getTickets(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    return this.request(`/admin/tickets${queryString ? `?${queryString}` : ''}`);
+  async getTickets() {
+    return this.request('/admin/tickets');
   }
 
   async createTicket(ticketData) {
@@ -165,23 +130,20 @@ class ApiClient {
     });
   }
 
-  async addTicketComment(ticketId, body) {
-    return this.request(`/admin/tickets/${ticketId}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({ body }),
+  async updateTicket(ticketId, updates) {
+    return this.request(`/admin/tickets/${ticketId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
     });
   }
 
-  async getAuditLogs(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    return this.request(`/admin/audit-logs${queryString ? `?${queryString}` : ''}`);
-  }
-
-  logout() {
-    this.setToken(null);
+  // Health check
+  async healthCheck() {
+    return this.request('/health');
   }
 }
 
-export const apiClient = new ApiClient();
-export default apiClient;
+// Create and export a singleton instance
+const api = new ApiClient();
+export default api;
 
