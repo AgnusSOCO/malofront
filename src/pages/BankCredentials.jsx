@@ -2,10 +2,222 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, Building2, Shield, CheckCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Trash2, Plus, Building2, Shield, CheckCircle, Eye, EyeOff, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
-import BankSpecificModal from './BankSpecificModal'; // Import the new bank-specific modals
+
+// Bank-specific modal components embedded directly to avoid import issues
+const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loading }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({ username: '', password: '' });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const resetForm = () => {
+    setFormData({ username: '', password: '' });
+    setShowPassword(false);
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
+  // Get bank-specific styling and content
+  const getBankConfig = (bankId) => {
+    switch (bankId) {
+      case 'bbva':
+        return {
+          color: '#004481',
+          name: 'BBVA México',
+          subtitle: 'Banca en Línea',
+          usernameLabel: 'Usuario / Número de Cliente',
+          passwordLabel: 'Contraseña',
+          buttonText: 'Guardar Credenciales',
+          logo: 'BBVA'
+        };
+      case 'santander':
+        return {
+          color: '#EC0000',
+          name: 'Santander México',
+          subtitle: '¡Bienvenido a SuperNet!',
+          usernameLabel: 'Código de Cliente / No. Cuenta / Tarjeta',
+          passwordLabel: 'Contraseña',
+          buttonText: 'Continuar',
+          logo: '🔥'
+        };
+      case 'banamex':
+        return {
+          color: '#C41E3A',
+          name: 'Banamex',
+          subtitle: 'BancaNet - El Banco Nacional de México',
+          usernameLabel: 'Número de Cliente',
+          passwordLabel: 'Código de Acceso',
+          buttonText: 'Ingresar',
+          logo: 'BNX'
+        };
+      case 'banorte':
+        return {
+          color: '#E30613',
+          name: 'Banorte',
+          subtitle: 'El Banco Fuerte de México',
+          usernameLabel: 'Usuario',
+          passwordLabel: 'Contraseña',
+          buttonText: 'Ingresar',
+          logo: 'BNT'
+        };
+      case 'hsbc':
+        return {
+          color: '#DB0011',
+          name: 'HSBC México',
+          subtitle: 'Banca en Línea Personal',
+          usernameLabel: 'Número de Cliente / Usuario',
+          passwordLabel: 'Contraseña de Acceso',
+          buttonText: 'Acceder',
+          logo: 'HSBC'
+        };
+      case 'azteca':
+        return {
+          color: '#00A651',
+          name: 'Banco Azteca',
+          subtitle: 'Banca Digital',
+          usernameLabel: 'Usuario / Número de Cliente',
+          passwordLabel: 'Contraseña',
+          buttonText: 'Ingresar',
+          logo: 'AZ'
+        };
+      default:
+        return {
+          color: '#004481',
+          name: 'BBVA México',
+          subtitle: 'Banca en Línea',
+          usernameLabel: 'Usuario / Número de Cliente',
+          passwordLabel: 'Contraseña',
+          buttonText: 'Guardar Credenciales',
+          logo: 'BBVA'
+        };
+    }
+  };
+
+  const config = getBankConfig(bankId);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md mx-auto bg-white">
+        {/* Bank Header */}
+        <div 
+          className="text-white p-4 -m-6 mb-4 rounded-t-lg"
+          style={{ backgroundColor: config.color }}
+        >
+          <div className="flex items-center justify-center space-x-2">
+            <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
+              <span 
+                className="font-bold text-xs"
+                style={{ color: config.color }}
+              >
+                {config.logo}
+              </span>
+            </div>
+            <h2 className="text-lg font-semibold">{config.name}</h2>
+          </div>
+          <p className="text-center text-sm mt-2 opacity-90">{config.subtitle}</p>
+        </div>
+
+        {/* Bank Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Acceso a tu cuenta</h3>
+            <p className="text-sm text-gray-600">Ingresa tus datos para continuar</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bank-username" className="text-sm font-medium text-gray-700">
+              {config.usernameLabel}
+            </Label>
+            <Input
+              id="bank-username"
+              type="text"
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              className="focus:ring-2"
+              style={{ 
+                borderColor: config.color,
+                '--tw-ring-color': config.color 
+              }}
+              placeholder="Ingresa tu usuario"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bank-password" className="text-sm font-medium text-gray-700">
+              {config.passwordLabel}
+            </Label>
+            <div className="relative">
+              <Input
+                id="bank-password"
+                type={showPassword ? 'text' : 'password'}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="pr-10 focus:ring-2"
+                style={{ 
+                  borderColor: config.color,
+                  '--tw-ring-color': config.color 
+                }}
+                placeholder="Ingresa tu contraseña"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Security Notice */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-center space-x-2">
+              <Shield className="text-blue-600" size={16} />
+              <span className="text-xs text-gray-700">
+                Tus credenciales serán encriptadas y almacenadas de forma segura
+              </span>
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 border-gray-300"
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 text-white"
+              style={{ backgroundColor: config.color }}
+              disabled={loading}
+            >
+              {loading ? 'Guardando...' : config.buttonText}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const BankCredentials = () => {
   const [banks, setBanks] = useState([]);
