@@ -5,11 +5,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '../lib/api';
-import { Button } from from '@/components/ui/button';
-import { Badge } from from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from from '@/components/ui/card';
-import { Alert, AlertDescription } from from '@/components/ui/alert';
-import { Progress } from from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
 import {
   User,
