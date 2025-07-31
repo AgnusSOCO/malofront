@@ -1,30 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Trash2, Eye, EyeOff, Shield, Building, Plus } from 'lucide-react';
+import { Trash2, Eye, EyeOff, Plus, Building, Shield } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
 const BankCredentials = () => {
   const [banks, setBanks] = useState([]);
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Form state
   const [formData, setFormData] = useState({
-    bankId: '',
+    provider_id: '',
     username: '',
     password: ''
   });
 
+  // Load banks and credentials on component mount
   useEffect(() => {
     loadData();
   }, []);
@@ -32,94 +33,51 @@ const BankCredentials = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      setError('');
+      console.log('Loading banks and credentials...');
       
-      // Load banks and credentials in parallel
-      const [banksResponse, credentialsResponse] = await Promise.all([
-        apiClient.getBanks(),
-        apiClient.getUserCredentials()
-      ]);
-      
-      console.log('Banks loaded:', banksResponse);
-      console.log('Credentials loaded:', credentialsResponse);
-      
+      // Load banks
+      const banksResponse = await apiClient.get('/applicants/banks');
+      console.log('Banks response:', banksResponse);
       setBanks(banksResponse.banks || []);
+      
+      // Load user credentials
+      const credentialsResponse = await apiClient.get('/applicants/credentials');
+      console.log('Credentials response:', credentialsResponse);
       setCredentials(credentialsResponse.credentials || []);
+      
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Error al cargar la información bancaria');
-      
-      // Fallback data if API fails
-      setBanks([
-        { id: '1', name: 'BBVA México', code: 'bbva' },
-        { id: '2', name: 'Santander México', code: 'santander' },
-        { id: '3', name: 'Banamex', code: 'banamex' },
-        { id: '4', name: 'Banorte', code: 'banorte' },
-        { id: '5', name: 'HSBC México', code: 'hsbc' },
-        { id: '6', name: 'Banco Azteca', code: 'azteca' }
-      ]);
-      setCredentials([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    
-    // Clear any previous errors
-    setError('');
-  };
-
-  const validateForm = () => {
-    if (!formData.bankId) {
-      setError('Por favor selecciona un banco');
-      return false;
-    }
-    if (!formData.username.trim()) {
-      setError('Por favor ingresa tu usuario o email');
-      return false;
-    }
-    if (!formData.password.trim()) {
-      setError('Por favor ingresa tu contraseña');
-      return false;
-    }
-    return true;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    // Clear previous messages
+    setError('');
+    setSuccess('');
+    
+    // Validate form
+    if (!formData.provider_id || !formData.username || !formData.password) {
+      setError('Todos los campos son obligatorios');
       return;
     }
 
     try {
-      setLoading(true);
-      setError('');
-      setSuccess('');
-
-      console.log('Submitting credentials:', {
-        bankId: formData.bankId,
-        username: formData.username,
-        hasPassword: !!formData.password
-      });
-
-      const response = await apiClient.saveCredentials(formData.bankId, {
-        username: formData.username,
-        password: formData.password
-      });
-
-      console.log('Save credentials response:', response);
-
-      setSuccess('Credenciales bancarias guardadas exitosamente');
+      setSaving(true);
+      console.log('Saving credentials with data:', formData);
+      
+      const response = await apiClient.post('/applicants/credentials', formData);
+      console.log('Save response:', response);
+      
+      setSuccess('Credenciales guardadas exitosamente');
       
       // Reset form
       setFormData({
-        bankId: '',
+        provider_id: '',
         username: '',
         password: ''
       });
@@ -134,7 +92,7 @@ const BankCredentials = () => {
       console.error('Error saving credentials:', error);
       setError(`Error al guardar las credenciales: ${error.message}`);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -144,35 +102,29 @@ const BankCredentials = () => {
     }
 
     try {
-      setLoading(true);
-      await apiClient.deleteCredentials(credentialId);
+      await apiClient.delete(`/applicants/credentials/${credentialId}`);
       setSuccess('Credenciales eliminadas exitosamente');
       await loadData();
     } catch (error) {
       console.error('Error deleting credentials:', error);
-      setError(`Error al eliminar las credenciales: ${error.message}`);
-    } finally {
-      setLoading(false);
+      setError('Error al eliminar las credenciales');
     }
   };
 
-  const getBankLogo = (bankCode) => {
-    const logoMap = {
-      'bbva': '/banks/bbva.jpg',
-      'santander': '/banks/santander.png',
-      'banamex': '/banks/banamex.jpg',
-      'banorte': '/banks/banorte.jpg',
-      'hsbc': '/banks/hsbc.png',
-      'azteca': '/banks/azteca.jpg'
-    };
-    return logoMap[bankCode] || '/banks/default.png';
+  const getBankName = (providerId) => {
+    const bank = banks.find(b => b.id === providerId);
+    return bank ? bank.name : 'Banco desconocido';
   };
 
-  const getSelectedBank = () => {
-    return banks.find(bank => bank.id === formData.bankId);
+  const getBankLogo = (providerId) => {
+    const bank = banks.find(b => b.id === providerId);
+    if (bank && bank.logo_url) {
+      return bank.logo_url;
+    }
+    return null;
   };
 
-  if (loading && banks.length === 0) {
+  if (loading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
@@ -187,6 +139,7 @@ const BankCredentials = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Credenciales Bancarias</h1>
@@ -198,7 +151,7 @@ const BankCredentials = () => {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="w-4 h-4 mr-2" />
               Agregar Banco
             </Button>
           </DialogTrigger>
@@ -211,11 +164,15 @@ const BankCredentials = () => {
             </DialogHeader>
             
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Bank Selection */}
               <div className="space-y-2">
                 <Label htmlFor="bank">Banco *</Label>
                 <Select 
-                  value={formData.bankId} 
-                  onValueChange={(value) => handleInputChange('bankId', value)}
+                  value={formData.provider_id} 
+                  onValueChange={(value) => {
+                    console.log('Selected bank ID:', value);
+                    setFormData(prev => ({ ...prev, provider_id: value }));
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona tu banco" />
@@ -230,6 +187,7 @@ const BankCredentials = () => {
                 </Select>
               </div>
 
+              {/* Username */}
               <div className="space-y-2">
                 <Label htmlFor="username">Usuario/Email *</Label>
                 <Input
@@ -237,11 +195,12 @@ const BankCredentials = () => {
                   type="text"
                   placeholder="Tu usuario o email del banco"
                   value={formData.username}
-                  onChange={(e) => handleInputChange('username', e.target.value)}
+                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                   required
                 />
               </div>
 
+              {/* Password */}
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña *</Label>
                 <div className="relative">
@@ -250,7 +209,7 @@ const BankCredentials = () => {
                     type={showPassword ? "text" : "password"}
                     placeholder="Tu contraseña del banco"
                     value={formData.password}
-                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                     required
                   />
                   <Button
@@ -269,13 +228,15 @@ const BankCredentials = () => {
                 </div>
               </div>
 
+              {/* Security Notice */}
               <Alert>
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
-                  Tus credenciales se encriptan con AES-256 antes de almacenarse. Solo tú y administradores autorizados pueden acceder a esta información.
+                  Tus credenciales se encriptan con AES-256 antes de almacenarse. Solo tú y los administradores autorizados pueden acceder a esta información.
                 </AlertDescription>
               </Alert>
 
+              {/* Error/Success Messages */}
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -283,25 +244,27 @@ const BankCredentials = () => {
               )}
 
               {success && (
-                <Alert className="border-green-200 bg-green-50">
-                  <AlertDescription className="text-green-800">{success}</AlertDescription>
+                <Alert className="border-green-200 bg-green-50 text-green-800">
+                  <AlertDescription>{success}</AlertDescription>
                 </Alert>
               )}
 
+              {/* Form Actions */}
               <div className="flex justify-end space-x-2 pt-4">
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={() => setIsDialogOpen(false)}
+                  disabled={saving}
                 >
                   Cancelar
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={loading}
+                  disabled={saving}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
-                  {loading ? 'Guardando...' : 'Guardar Credenciales'}
+                  {saving ? 'Guardando...' : 'Guardar Credenciales'}
                 </Button>
               </div>
             </form>
@@ -312,7 +275,7 @@ const BankCredentials = () => {
       {/* Security Notice */}
       <Alert>
         <Shield className="h-4 w-4" />
-        <AlertDescription>
+        <AlertDescription className="text-sm">
           <strong>Seguridad garantizada:</strong> Todas tus credenciales bancarias se encriptan con AES-256 antes de almacenarse. Solo tú y los administradores autorizados pueden acceder a esta información.
         </AlertDescription>
       </Alert>
@@ -320,8 +283,8 @@ const BankCredentials = () => {
       {/* Connected Banks */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5" />
+          <CardTitle className="flex items-center">
+            <Building className="w-5 h-5 mr-2" />
             Bancos Conectados ({credentials.length})
           </CardTitle>
           <CardDescription>
@@ -331,57 +294,62 @@ const BankCredentials = () => {
         <CardContent>
           {credentials.length === 0 ? (
             <div className="text-center py-12">
-              <Building className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No tienes bancos conectados</h3>
-              <p className="text-gray-600 mb-6">
+              <Building className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No tienes bancos conectados</h3>
+              <p className="text-gray-500 mb-6">
                 Conecta tus cuentas bancarias para acelerar el proceso de solicitud de préstamos
               </p>
               <Button 
                 onClick={() => setIsDialogOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="w-4 h-4 mr-2" />
                 Conectar tu primer banco
               </Button>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {credentials.map((credential) => {
-                const bank = banks.find(b => b.id === credential.provider_id);
-                return (
-                  <Card key={credential.id} className="border-2">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={getBankLogo(bank?.code)}
-                            alt={bank?.name}
-                            className="w-10 h-10 rounded-lg object-cover"
+              {credentials.map((credential) => (
+                <Card key={credential.id} className="border border-gray-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        {getBankLogo(credential.provider_id) ? (
+                          <img 
+                            src={getBankLogo(credential.provider_id)} 
+                            alt={getBankName(credential.provider_id)}
+                            className="w-8 h-8 object-contain"
                             onError={(e) => {
-                              e.target.src = '/banks/default.png';
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
                             }}
                           />
-                          <div>
-                            <h4 className="font-semibold">{bank?.name}</h4>
-                            <p className="text-sm text-gray-600">{credential.username}</p>
-                          </div>
+                        ) : null}
+                        <Building className="w-8 h-8 text-gray-400" style={{display: getBankLogo(credential.provider_id) ? 'none' : 'flex'}} />
+                        <div>
+                          <h4 className="font-medium text-gray-900">
+                            {getBankName(credential.provider_id)}
+                          </h4>
+                          <p className="text-sm text-gray-500">
+                            {credential.username}
+                          </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(credential.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        Conectado el {new Date(credential.created_at).toLocaleDateString('es-MX')}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(credential.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Conectado el {new Date(credential.created_at).toLocaleDateString('es-ES')}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>
@@ -397,59 +365,51 @@ const BankCredentials = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {banks.map((bank) => {
-              const isConnected = credentials.some(c => c.provider_id === bank.id);
-              return (
-                <div
-                  key={bank.id}
-                  className={`p-4 border-2 rounded-lg text-center transition-all ${
-                    isConnected 
-                      ? 'border-green-200 bg-green-50' 
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 cursor-pointer'
-                  }`}
-                  onClick={() => {
-                    if (!isConnected) {
-                      setFormData(prev => ({ ...prev, bankId: bank.id }));
-                      setIsDialogOpen(true);
-                    }
-                  }}
-                >
-                  <img
-                    src={getBankLogo(bank.code)}
+            {banks.map((bank) => (
+              <div
+                key={bank.id}
+                className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
+                onClick={() => setIsDialogOpen(true)}
+              >
+                {bank.logo_url ? (
+                  <img 
+                    src={bank.logo_url} 
                     alt={bank.name}
-                    className="w-12 h-12 mx-auto mb-2 rounded-lg object-cover"
+                    className="w-12 h-12 object-contain mb-2"
                     onError={(e) => {
-                      e.target.src = '/banks/default.png';
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
                     }}
                   />
-                  <p className="text-sm font-medium">{bank.name}</p>
-                  {isConnected && (
-                    <p className="text-xs text-green-600 mt-1">✓ Conectado</p>
-                  )}
-                </div>
-              );
-            })}
+                ) : null}
+                <Building className="w-12 h-12 text-gray-400 mb-2" style={{display: bank.logo_url ? 'none' : 'flex'}} />
+                <span className="text-sm font-medium text-center">{bank.name}</span>
+              </div>
+            ))}
           </div>
           
-          {banks.length === 0 && (
-            <div className="text-center py-8">
-              <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No hay bancos disponibles</p>
-            </div>
-          )}
+          <div className="mt-6 text-center">
+            <Button 
+              onClick={() => setIsDialogOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Conectar Banco
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Global Messages */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+      {/* Global Success/Error Messages */}
+      {success && !isDialogOpen && (
+        <Alert className="border-green-200 bg-green-50 text-green-800">
+          <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
 
-      {success && (
-        <Alert className="border-green-200 bg-green-50">
-          <AlertDescription className="text-green-800">{success}</AlertDescription>
+      {error && !isDialogOpen && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
     </div>
