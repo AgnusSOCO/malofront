@@ -9,8 +9,48 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Trash2, Eye, EyeOff, Plus, Building, Shield } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
+// Fallback banks data in case API fails
+const FALLBACK_BANKS = [
+  {
+    id: 'bbva-mexico',
+    name: 'BBVA México',
+    code: 'BBVA',
+    logo_url: '/banks/bbva.jpg'
+  },
+  {
+    id: 'santander-mexico',
+    name: 'Santander México',
+    code: 'SANTANDER',
+    logo_url: '/banks/santander.png'
+  },
+  {
+    id: 'banamex',
+    name: 'Banamex',
+    code: 'BANAMEX',
+    logo_url: '/banks/banamex.jpg'
+  },
+  {
+    id: 'banorte',
+    name: 'Banorte',
+    code: 'BANORTE',
+    logo_url: '/banks/banorte.jpg'
+  },
+  {
+    id: 'hsbc-mexico',
+    name: 'HSBC México',
+    code: 'HSBC',
+    logo_url: '/banks/hsbc.png'
+  },
+  {
+    id: 'banco-azteca',
+    name: 'Banco Azteca',
+    code: 'AZTECA',
+    logo_url: '/banks/azteca.jpg'
+  }
+];
+
 const BankCredentials = () => {
-  const [banks, setBanks] = useState([]);
+  const [banks, setBanks] = useState(FALLBACK_BANKS); // Start with fallback data
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -18,6 +58,7 @@ const BankCredentials = () => {
   const [success, setSuccess] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [apiError, setApiError] = useState(false);
   
   const [formData, setFormData] = useState({
     provider_id: '',
@@ -33,21 +74,43 @@ const BankCredentials = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      setApiError(false);
       console.log('Loading banks and credentials...');
       
-      // Load banks
-      const banksResponse = await apiClient.get('/applicants/banks');
-      console.log('Banks response:', banksResponse);
-      setBanks(banksResponse.banks || []);
+      // Try to load banks from API
+      try {
+        const banksResponse = await apiClient.get('/applicants/banks');
+        console.log('Banks API response:', banksResponse);
+        
+        if (banksResponse && banksResponse.banks && banksResponse.banks.length > 0) {
+          setBanks(banksResponse.banks);
+          console.log('✅ Banks loaded from API:', banksResponse.banks.length);
+        } else {
+          console.log('⚠️ API returned empty banks, using fallback');
+          setBanks(FALLBACK_BANKS);
+        }
+      } catch (banksError) {
+        console.error('❌ Banks API failed:', banksError);
+        setApiError(true);
+        setBanks(FALLBACK_BANKS);
+        console.log('✅ Using fallback banks:', FALLBACK_BANKS.length);
+      }
       
-      // Load user credentials
-      const credentialsResponse = await apiClient.get('/applicants/credentials');
-      console.log('Credentials response:', credentialsResponse);
-      setCredentials(credentialsResponse.credentials || []);
+      // Try to load user credentials
+      try {
+        const credentialsResponse = await apiClient.get('/applicants/credentials');
+        console.log('Credentials API response:', credentialsResponse);
+        setCredentials(credentialsResponse.credentials || []);
+      } catch (credentialsError) {
+        console.error('❌ Credentials API failed:', credentialsError);
+        setCredentials([]);
+      }
       
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ General error loading data:', error);
       setError('Error al cargar la información bancaria');
+      // Ensure we still have fallback banks
+      setBanks(FALLBACK_BANKS);
     } finally {
       setLoading(false);
     }
@@ -185,6 +248,11 @@ const BankCredentials = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {apiError && (
+                  <p className="text-xs text-amber-600">
+                    ⚠️ Usando bancos predeterminados (API temporalmente no disponible)
+                  </p>
+                )}
               </div>
 
               {/* Username */}
@@ -271,6 +339,15 @@ const BankCredentials = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* API Status Notice */}
+      {apiError && (
+        <Alert className="border-amber-200 bg-amber-50 text-amber-800">
+          <AlertDescription>
+            ⚠️ <strong>Modo sin conexión:</strong> La API está temporalmente no disponible. Los bancos se muestran desde datos locales. Las credenciales se guardarán cuando la conexión se restablezca.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Security Notice */}
       <Alert>
@@ -412,6 +489,11 @@ const BankCredentials = () => {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      {/* Debug Info */}
+      <div className="text-xs text-gray-500 mt-4">
+        Debug: {banks.length} bancos cargados, API: {apiError ? 'Error' : 'OK'}
+      </div>
     </div>
   );
 };
