@@ -19,7 +19,6 @@ const createHeaders = () => {
   const token = getAuthToken();
   const headers = {
     'Content-Type': 'application/json',
-    ...options,
   };
   
   if (token) {
