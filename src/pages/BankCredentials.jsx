@@ -56,10 +56,11 @@ const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loadin
     }
   }, [isOpen]);
 
-  // Get bank-specific styling and content
-  const getBankConfig = (bankId) => {
-    switch (bankId) {
-      case 'bbva':
+  // Get bank-specific styling and content based on bank code
+  const getBankConfig = (bankCode) => {
+    const code = bankCode?.toUpperCase();
+    switch (code) {
+      case 'BBVA':
         return {
           color: '#004481',
           name: 'BBVA México',
@@ -69,7 +70,7 @@ const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loadin
           buttonText: 'Guardar Credenciales',
           logo: 'BBVA'
         };
-      case 'santander':
+      case 'SANTANDER':
         return {
           color: '#EC0000',
           name: 'Santander México',
@@ -79,7 +80,7 @@ const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loadin
           buttonText: 'Continuar',
           logo: '🔥'
         };
-      case 'banamex':
+      case 'BANAMEX':
         return {
           color: '#C41E3A',
           name: 'Banamex',
@@ -89,7 +90,7 @@ const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loadin
           buttonText: 'Ingresar',
           logo: 'BNX'
         };
-      case 'banorte':
+      case 'BANORTE':
         return {
           color: '#E30613',
           name: 'Banorte',
@@ -99,7 +100,7 @@ const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loadin
           buttonText: 'Ingresar',
           logo: 'BNT'
         };
-      case 'hsbc':
+      case 'HSBC':
         return {
           color: '#DB0011',
           name: 'HSBC México',
@@ -109,7 +110,7 @@ const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loadin
           buttonText: 'Acceder',
           logo: 'HSBC'
         };
-      case 'azteca':
+      case 'AZTECA':
         return {
           color: '#00A651',
           name: 'Banco Azteca',
@@ -122,12 +123,12 @@ const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loadin
       default:
         return {
           color: '#004481',
-          name: 'BBVA México',
+          name: bankName || 'Banco',
           subtitle: 'Banca en Línea',
           usernameLabel: 'Usuario / Número de Cliente',
           passwordLabel: 'Contraseña',
           buttonText: 'Guardar Credenciales',
-          logo: 'BBVA'
+          logo: 'BANK'
         };
     }
   };
@@ -252,46 +253,6 @@ const BankCredentials = () => {
   const [selectedBank, setSelectedBank] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Fallback banks data with proper IDs for modal mapping
-  const fallbackBanks = [
-    {
-      id: 'bbva-fallback-1',
-      name: 'BBVA México',
-      code: 'bbva',
-      logo_url: '/banks/bbva.jpg'
-    },
-    {
-      id: 'santander-fallback-2',
-      name: 'Santander México',
-      code: 'santander',
-      logo_url: '/banks/santander.png'
-    },
-    {
-      id: 'banamex-fallback-3',
-      name: 'Banamex',
-      code: 'banamex',
-      logo_url: '/banks/banamex.jpg'
-    },
-    {
-      id: 'banorte-fallback-4',
-      name: 'Banorte',
-      code: 'banorte',
-      logo_url: '/banks/banorte.jpg'
-    },
-    {
-      id: 'hsbc-fallback-5',
-      name: 'HSBC México',
-      code: 'hsbc',
-      logo_url: '/banks/hsbc.png'
-    },
-    {
-      id: 'azteca-fallback-6',
-      name: 'Banco Azteca',
-      code: 'azteca',
-      logo_url: '/banks/azteca.jpg'
-    }
-  ];
-
   useEffect(() => {
     loadBanks();
     loadCredentials();
@@ -303,34 +264,99 @@ const BankCredentials = () => {
       const response = await apiClient.get('/applicants/banks');
       console.log('Banks API response:', response);
       
-      if (response && response.length > 0) {
-        // Map API banks to include bank codes for modal selection
-        const banksWithCodes = response.map(bank => ({
-          ...bank,
-          code: getBankCode(bank.name)
-        }));
-        setBanks(banksWithCodes);
-        console.log('Using API banks:', banksWithCodes.length);
+      if (response && response.banks && response.banks.length > 0) {
+        setBanks(response.banks);
+        console.log('Using API banks:', response.banks.length);
+      } else if (response && Array.isArray(response) && response.length > 0) {
+        setBanks(response);
+        console.log('Using API banks (array format):', response.length);
       } else {
+        // Fallback banks with real UUIDs from the API
+        const fallbackBanks = [
+          {
+            id: '7b4a1d12-cc50-46d8-81c7-08eebfc5bf5a',
+            name: 'BBVA México',
+            code: 'BBVA',
+            logo_url: '/banks/bbva.jpg'
+          },
+          {
+            id: 'b153f653-3af6-48ab-b3c7-44d919fbdcb6',
+            name: 'Santander México',
+            code: 'SANTANDER',
+            logo_url: '/banks/santander.png'
+          },
+          {
+            id: '43d4a40e-f175-4690-ad63-c86efc69adc0',
+            name: 'Banamex',
+            code: 'BANAMEX',
+            logo_url: '/banks/banamex.jpg'
+          },
+          {
+            id: '842f0822-e62f-47f6-a559-c5641cc16669',
+            name: 'Banorte',
+            code: 'BANORTE',
+            logo_url: '/banks/banorte.jpg'
+          },
+          {
+            id: '47dc2c19-dc0b-401d-8947-d8705b315d3e',
+            name: 'HSBC México',
+            code: 'HSBC',
+            logo_url: '/banks/hsbc.png'
+          },
+          {
+            id: 'f885f8e0-9f67-475d-9844-cf5fb34b0313',
+            name: 'Banco Azteca',
+            code: 'AZTECA',
+            logo_url: '/banks/azteca.jpg'
+          }
+        ];
         setBanks(fallbackBanks);
         console.log('Using fallback banks:', fallbackBanks.length);
       }
     } catch (error) {
       console.error('Error loading banks:', error);
+      // Use fallback banks with real UUIDs
+      const fallbackBanks = [
+        {
+          id: '7b4a1d12-cc50-46d8-81c7-08eebfc5bf5a',
+          name: 'BBVA México',
+          code: 'BBVA',
+          logo_url: '/banks/bbva.jpg'
+        },
+        {
+          id: 'b153f653-3af6-48ab-b3c7-44d919fbdcb6',
+          name: 'Santander México',
+          code: 'SANTANDER',
+          logo_url: '/banks/santander.png'
+        },
+        {
+          id: '43d4a40e-f175-4690-ad63-c86efc69adc0',
+          name: 'Banamex',
+          code: 'BANAMEX',
+          logo_url: '/banks/banamex.jpg'
+        },
+        {
+          id: '842f0822-e62f-47f6-a559-c5641cc16669',
+          name: 'Banorte',
+          code: 'BANORTE',
+          logo_url: '/banks/banorte.jpg'
+        },
+        {
+          id: '47dc2c19-dc0b-401d-8947-d8705b315d3e',
+          name: 'HSBC México',
+          code: 'HSBC',
+          logo_url: '/banks/hsbc.png'
+        },
+        {
+          id: 'f885f8e0-9f67-475d-9844-cf5fb34b0313',
+          name: 'Banco Azteca',
+          code: 'AZTECA',
+          logo_url: '/banks/azteca.jpg'
+        }
+      ];
       setBanks(fallbackBanks);
       console.log('Using fallback banks due to error:', fallbackBanks.length);
     }
-  };
-
-  const getBankCode = (bankName) => {
-    const name = bankName.toLowerCase();
-    if (name.includes('bbva')) return 'bbva';
-    if (name.includes('santander')) return 'santander';
-    if (name.includes('banamex')) return 'banamex';
-    if (name.includes('banorte')) return 'banorte';
-    if (name.includes('hsbc')) return 'hsbc';
-    if (name.includes('azteca')) return 'azteca';
-    return 'bbva'; // Default fallback
   };
 
   const loadCredentials = async () => {
@@ -370,7 +396,7 @@ const BankCredentials = () => {
       console.log('Form data:', formData);
 
       const credentialData = {
-        provider_id: selectedBank.id,
+        provider_id: selectedBank.id, // Use the actual UUID from the API
         username: formData.username,
         password: formData.password
       };
@@ -443,8 +469,7 @@ const BankCredentials = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {credentials.map((credential) => {
-                const bank = banks.find(b => b.id === credential.provider_id) || 
-                           fallbackBanks.find(b => b.id === credential.provider_id);
+                const bank = banks.find(b => b.id === credential.provider_id);
                 
                 return (
                   <Card key={credential.id} className="border-green-200 bg-green-50">
