@@ -19,6 +19,7 @@ const createHeaders = () => {
   const token = getAuthToken();
   const headers = {
     'Content-Type': 'application/json',
+    ...options,
   };
   
   if (token) {
@@ -148,14 +149,16 @@ const apiClient = {
     } catch (error) {
       console.error('Failed to fetch banks:', error);
       // Return fallback banks if API fails
-      return [
-        { id: 'bbva-mexico', name: 'BBVA México', logo: '/banks/bbva.jpg' },
-        { id: 'santander-mexico', name: 'Santander México', logo: '/banks/santander.png' },
-        { id: 'banamex', name: 'Banamex', logo: '/banks/banamex.jpg' },
-        { id: 'banorte', name: 'Banorte', logo: '/banks/banorte.jpg' },
-        { id: 'hsbc-mexico', name: 'HSBC México', logo: '/banks/hsbc.png' },
-        { id: 'banco-azteca', name: 'Banco Azteca', logo: '/banks/azteca.jpg' }
-      ];
+      return {
+        banks: [
+          { id: 'bbva-mexico', name: 'BBVA México', logo: '/banks/bbva.jpg' },
+          { id: 'santander-mexico', name: 'Santander México', logo: '/banks/santander.png' },
+          { id: 'banamex', name: 'Banamex', logo: '/banks/banamex.jpg' },
+          { id: 'banorte', name: 'Banorte', logo: '/banks/banorte.jpg' },
+          { id: 'hsbc-mexico', name: 'HSBC México', logo: '/banks/hsbc.png' },
+          { id: 'banco-azteca', name: 'Banco Azteca', logo: '/banks/azteca.jpg' }
+        ]
+      };
     }
   },
 
@@ -213,6 +216,17 @@ const apiClient = {
     }
   },
 
+  // NEW: Admin method to get applicant's bank credentials
+  getApplicantCredentials: async (applicantId) => {
+    console.log('Fetching credentials for applicant:', applicantId);
+    try {
+      return await apiClient.get(`/admin/applicants/${applicantId}/credentials`);
+    } catch (error) {
+      console.error('Failed to fetch applicant credentials:', error);
+      throw error;
+    }
+  },
+
   // User profile methods
   getProfile: async () => {
     console.log('Fetching user profile...');
@@ -259,5 +273,5 @@ export default apiClient;
 
 // Global error handler for debugging
 window.apiClient = apiClient;
-console.log('✅ API Client initialized with all methods');
+console.log('🚀 API Client initialized with all methods');
 
