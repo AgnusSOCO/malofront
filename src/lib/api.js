@@ -1,6 +1,7 @@
 /**
  * API Client for Loan Platform
  * ✅ FIXED: Bank credentials saving functionality
+ * ✅ FIXED: Import/export compatibility for frontend build
  * ✅ Proper error handling and authentication
  */
 
@@ -263,10 +264,10 @@ class ApiClient {
   }
 }
 
-// ✅ FIXED: Create and export singleton instance
-const api = new ApiClient();
+// ✅ CRITICAL FIX: Create singleton instance
+const apiClient = new ApiClient();
 
-// ✅ FIXED: Export both the class and instance
-export default api;
-export { ApiClient };
+// ✅ CRITICAL FIX: Export both named and default exports for compatibility
+export { apiClient, ApiClient };
+export default apiClient;
 
