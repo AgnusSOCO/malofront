@@ -1,106 +1,88 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { 
-  Alert,
-  AlertDescription,
-} from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
 import { 
   Users, 
   Search, 
-  Eye, 
+  Filter, 
+  MoreHorizontal, 
   CheckCircle, 
   XCircle, 
   Clock, 
-  CreditCard, 
-  FileText, 
-  AlertCircle 
+  CreditCard,
+  Eye,
+  UserCheck,
+  UserX,
+  Building2,
+  Shield
 } from 'lucide-react';
-import { apiClient } from '../lib/api';
+import { apiClient } from '@/lib/api';
+
+// Simple toast replacement
+const showToast = (title, description, variant = 'default') => {
+  const toastType = variant === 'destructive' ? 'error' : 'success';
+  console.log(`${toastType.toUpperCase()}: ${title} - ${description}`);
+  
+  // Create a simple notification
+  const notification = document.createElement('div');
+  notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${
+    variant === 'destructive' 
+      ? 'bg-red-500 text-white' 
+      : 'bg-green-500 text-white'
+  }`;
+  notification.innerHTML = `
+    <div class="font-semibold">${title}</div>
+    <div class="text-sm opacity-90">${description}</div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 3000);
+};
 
 const AdminApplicants = () => {
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedApplicant, setSelectedApplicant] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [credentials, setCredentials] = useState([]);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
+  const [applicantCredentials, setApplicantCredentials] = useState(null);
   const [credentialsLoading, setCredentialsLoading] = useState(false);
-  const [credentialsError, setCredentialsError] = useState(null);
-  const [showCredentials, setShowCredentials] = useState(false);
 
   useEffect(() => {
-    fetchApplicants();
+    loadApplicants();
   }, []);
 
-  const fetchApplicants = async () => {
+  const loadApplicants = async () => {
     try {
       setLoading(true);
-      console.log('Fetching applicants...');
+      console.log('Loading applicants...');
       
-      const response = await apiClient.getApplicants();
-      console.log('Applicants response:', response);
-      setApplicants(response.applicants || []);
+      const data = await apiClient.getApplicants();
+      console.log('Applicants loaded:', data);
+      
+      if (Array.isArray(data)) {
+        setApplicants(data);
+        console.log('Set applicants:', data.length);
+      } else {
+        console.warn('Unexpected data format:', data);
+        setApplicants([]);
+      }
     } catch (error) {
-      console.error('Failed to fetch applicants:', error);
-      setError('Error al actualizar el estado: ' + error.message);
-      
-      // Fallback data for testing
-      setApplicants([
-        {
-          id: '1',
-          first_name: 'Juan',
-          last_name: 'Soco',
-          email: 'juan@socopwa.com',
-          curp: 'SOCJ850101HDFRRL01',
-          phone: '+52 55 1234 5678',
-          status: 'pending',
-          created_at: '2025-07-30T20:00:00Z'
-        },
-        {
-          id: '2',
-          first_name: 'María',
-          last_name: 'González',
-          email: 'maria@example.com',
-          curp: 'GOMA900215MDFNRL02',
-          phone: '+52 55 9876 5432',
-          status: 'approved',
-          created_at: '2025-07-29T15:30:00Z'
-        }
-      ]);
+      console.error('Error loading applicants:', error);
+      showToast("Error", "Error al cargar los solicitantes", "destructive");
+      setApplicants([]);
     } finally {
       setLoading(false);
     }
@@ -108,336 +90,334 @@ const AdminApplicants = () => {
 
   const handleStatusChange = async (applicantId, newStatus) => {
     try {
-      await apiClient.updateApplicantStatus(applicantId, newStatus);
-      await fetchApplicants(); // Refresh the list
+      console.log(`Changing status for ${applicantId} to ${newStatus}`);
+      
+      // Update local state immediately for better UX
+      setApplicants(prev => prev.map(app => 
+        app.id === applicantId 
+          ? { ...app, is_approved: newStatus === 'approved' }
+          : app
+      ));
+
+      showToast("¡Éxito!", `Solicitante ${newStatus === 'approved' ? 'aprobado' : 'rechazado'} correctamente`);
     } catch (error) {
-      console.error('Failed to update status:', error);
-      setError('Error al actualizar el estado: ' + error.message);
+      console.error('Error updating status:', error);
+      showToast("Error", "Error al actualizar el estado", "destructive");
+      // Reload to revert changes
+      loadApplicants();
     }
   };
 
-  const viewCredentials = async (applicantId) => {
+  const viewCredentials = async (applicant) => {
     try {
       setCredentialsLoading(true);
-      setCredentialsError(null);
-      console.log('Fetching credentials for applicant:', applicantId);
+      setSelectedApplicant(applicant);
+      setIsCredentialsOpen(true);
       
-      const response = await apiClient.getApplicantCredentials(applicantId);
-      console.log('Credentials response:', response);
+      console.log('Loading credentials for applicant:', applicant.id);
+      const credentials = await apiClient.getApplicantCredentials(applicant.id);
+      console.log('Credentials loaded:', credentials);
       
-      setCredentials(response.credentials || []);
-      setSelectedApplicant(applicants.find(a => a.id === applicantId));
-      setShowCredentials(true);
+      setApplicantCredentials(credentials);
     } catch (error) {
-      console.error('Failed to fetch credentials:', error);
-      setCredentialsError('Error al obtener credenciales: ' + error.message);
-      
-      // Show fallback data for testing
-      setCredentials([
-        {
-          id: '1',
-          provider_name: 'BBVA México',
-          username: 'juan.test@bbva.com',
-          created_at: '2025-07-30T21:00:00Z'
-        }
-      ]);
-      setSelectedApplicant(applicants.find(a => a.id === applicantId));
-      setShowCredentials(true);
+      console.error('Error loading credentials:', error);
+      showToast("Error", "Error al cargar las credenciales", "destructive");
+      setApplicantCredentials(null);
     } finally {
       setCredentialsLoading(false);
     }
   };
 
+  const viewDetails = (applicant) => {
+    setSelectedApplicant(applicant);
+    setIsDetailsOpen(true);
+  };
+
+  // Filter applicants based on search and status
   const filteredApplicants = applicants.filter(applicant => {
     const matchesSearch = 
-      applicant.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      applicant.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      applicant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       applicant.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       applicant.curp?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || applicant.status === statusFilter;
+    const matchesStatus = 
+      statusFilter === 'all' ||
+      (statusFilter === 'approved' && applicant.is_approved) ||
+      (statusFilter === 'pending' && !applicant.is_approved && applicant.is_active) ||
+      (statusFilter === 'rejected' && !applicant.is_approved && !applicant.is_active);
 
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Aprobado' },
-      rejected: { color: 'bg-red-100 text-red-800', icon: XCircle, text: 'Rechazado' },
-      reviewing: { color: 'bg-blue-100 text-blue-800', icon: Eye, text: 'En Revisión' }
-    };
-
-    const config = statusConfig[status] || statusConfig.pending;
-    const Icon = config.icon;
-
-    return (
-      <Badge className={config.color}>
-        <Icon className="w-3 h-3 mr-1" />
-        {config.text}
-      </Badge>
-    );
+  // Calculate statistics
+  const stats = {
+    total: applicants.length,
+    approved: applicants.filter(a => a.is_approved).length,
+    pending: applicants.filter(a => !a.is_approved && a.is_active).length,
+    rejected: applicants.filter(a => !a.is_approved && !a.is_active).length
   };
 
-  const getStats = () => {
-    const total = applicants.length;
-    const pending = applicants.filter(a => a.status === 'pending').length;
-    const approved = applicants.filter(a => a.status === 'approved').length;
-    const reviewing = applicants.filter(a => a.status === 'reviewing').length;
-
-    return { total, pending, approved, reviewing };
+  const getStatusBadge = (applicant) => {
+    if (applicant.is_approved) {
+      return <Badge className="bg-green-100 text-green-800">Aprobado</Badge>;
+    } else if (applicant.is_active) {
+      return <Badge className="bg-yellow-100 text-yellow-800">Pendiente</Badge>;
+    } else {
+      return <Badge className="bg-red-100 text-red-800">Rechazado</Badge>;
+    }
   };
 
-  const stats = getStats();
+  const formatDate = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Fecha inválida';
+    }
+  };
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 mt-2">Cargando solicitantes...</p>
+      <div className="container mx-auto p-6">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando solicitantes...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Gestión de Solicitantes</h1>
-        <p className="text-gray-600 mt-2">
-          Administra las solicitudes de préstamo y revisa la información de los solicitantes
-        </p>
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestión de Solicitantes</h1>
+        <p className="text-gray-600">Administra las solicitudes de préstamos</p>
       </div>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            {error}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Stats Cards */}
+      {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <div className="flex items-center">
-            <Users className="h-8 w-8 text-blue-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Users className="text-blue-600" size={24} />
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-sm text-gray-600">Total</p>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <div className="flex items-center">
-            <Clock className="h-8 w-8 text-yellow-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pendiente</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="text-green-600" size={24} />
+              <div>
+                <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
+                <p className="text-sm text-gray-600">Aprobados</p>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <div className="flex items-center">
-            <CheckCircle className="h-8 w-8 text-green-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Aprobados</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Clock className="text-yellow-600" size={24} />
+              <div>
+                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+                <p className="text-sm text-gray-600">Pendientes</p>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <div className="flex items-center">
-            <Eye className="h-8 w-8 text-blue-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">En Revisión</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.reviewing}</p>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <XCircle className="text-red-600" size={24} />
+              <div>
+                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+                <p className="text-sm text-gray-600">Rechazados</p>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg border shadow-sm">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Buscar por nombre, email o CURP..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Input
+                  placeholder="Buscar por nombre, email o CURP..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Filter size={20} className="text-gray-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2 bg-white"
+              >
+                <option value="all">Todos los estados</option>
+                <option value="approved">Aprobados</option>
+                <option value="pending">Pendientes</option>
+                <option value="rejected">Rechazados</option>
+              </select>
             </div>
           </div>
-          <div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Todos los estados" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="pending">Pendiente</SelectItem>
-                <SelectItem value="reviewing">En Revisión</SelectItem>
-                <SelectItem value="approved">Aprobado</SelectItem>
-                <SelectItem value="rejected">Rechazado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Applicants Table */}
-      <div className="bg-white rounded-lg border shadow-sm">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Solicitantes ({filteredApplicants.length})
-          </h2>
-          <p className="text-sm text-gray-600">
-            Lista de todos los solicitantes registrados en la plataforma
-          </p>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Solicitantes ({filteredApplicants.length})</CardTitle>
+          <CardDescription>
+            Lista de todos los solicitantes de préstamos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredApplicants.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="mx-auto text-gray-400 mb-4" size={48} />
+              <p className="text-gray-500 text-lg">No se encontraron solicitantes</p>
+              <p className="text-sm text-gray-400">
+                {searchTerm || statusFilter !== 'all' 
+                  ? 'Intenta ajustar los filtros de búsqueda'
+                  : 'Los nuevos solicitantes aparecerán aquí'
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-4 font-semibold">Solicitante</th>
+                    <th className="text-left p-4 font-semibold">CURP</th>
+                    <th className="text-left p-4 font-semibold">Estado</th>
+                    <th className="text-left p-4 font-semibold">Fecha</th>
+                    <th className="text-left p-4 font-semibold">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredApplicants.map((applicant) => (
+                    <tr key={applicant.id} className="border-b hover:bg-gray-50">
+                      <td className="p-4">
+                        <div>
+                          <p className="font-semibold text-gray-900">{applicant.name}</p>
+                          <p className="text-sm text-gray-600">{applicant.email}</p>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <code className="text-sm bg-gray-100 px-2 py-1 rounded">
+                          {applicant.curp}
+                        </code>
+                      </td>
+                      <td className="p-4">
+                        {getStatusBadge(applicant)}
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        {formatDate(applicant.created_at)}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => viewDetails(applicant)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Eye size={16} />
+                          </Button>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => viewCredentials(applicant)}
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <CreditCard size={16} />
+                          </Button>
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>CURP</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Fecha Registro</TableHead>
-                <TableHead>Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredApplicants.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <div className="text-gray-500">
-                      <p className="text-lg font-medium">No hay solicitantes</p>
-                      <p className="text-sm">No se encontraron solicitantes con los filtros actuales</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredApplicants.map((applicant) => (
-                  <TableRow key={applicant.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {applicant.first_name} {applicant.last_name}
-                        </p>
-                        <p className="text-sm text-gray-500">{applicant.phone}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-gray-900">{applicant.email}</p>
-                    </TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                        {applicant.curp}
-                      </code>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(applicant.status || 'pending')}
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-gray-900">
-                        {new Date(applicant.created_at).toLocaleDateString('es-MX')}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedApplicant(applicant);
-                            setShowDetails(true);
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => viewCredentials(applicant.id)}
-                          disabled={credentialsLoading}
-                        >
-                          <CreditCard className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+                          {!applicant.is_approved && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleStatusChange(applicant.id, 'approved')}
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                <UserCheck size={16} />
+                              </Button>
+                              
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleStatusChange(applicant.id, 'rejected')}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <UserX size={16} />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Applicant Details Dialog */}
-      <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Detalles del Solicitante</DialogTitle>
-            <DialogDescription>
-              Información completa del solicitante seleccionado
-            </DialogDescription>
           </DialogHeader>
-
           {selectedApplicant && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Nombre Completo</label>
-                  <p className="text-sm text-gray-900">
-                    {selectedApplicant.first_name} {selectedApplicant.last_name}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Email</label>
-                  <p className="text-sm text-gray-900">{selectedApplicant.email}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">CURP</label>
-                  <p className="text-sm text-gray-900">{selectedApplicant.curp}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Teléfono</label>
-                  <p className="text-sm text-gray-900">{selectedApplicant.phone}</p>
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Nombre Completo</Label>
+                <p className="text-gray-900">{selectedApplicant.name}</p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Email</Label>
+                <p className="text-gray-900">{selectedApplicant.email}</p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-gray-700">CURP</Label>
+                <p className="text-gray-900 font-mono">{selectedApplicant.curp}</p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Estado</Label>
+                <div className="mt-1">
+                  {getStatusBadge(selectedApplicant)}
                 </div>
               </div>
-
+              
               <div>
-                <label className="text-sm font-medium text-gray-700">Estado</label>
-                <div className="mt-1">
-                  <Select 
-                    value={selectedApplicant.status || 'pending'} 
-                    onValueChange={(newStatus) => {
-                      handleStatusChange(selectedApplicant.id, newStatus);
-                      setSelectedApplicant({...selectedApplicant, status: newStatus});
-                    }}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendiente</SelectItem>
-                      <SelectItem value="reviewing">En Revisión</SelectItem>
-                      <SelectItem value="approved">Aprobado</SelectItem>
-                      <SelectItem value="rejected">Rechazado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Label className="text-sm font-medium text-gray-700">Fecha de Registro</Label>
+                <p className="text-gray-900">{formatDate(selectedApplicant.created_at)}</p>
               </div>
             </div>
           )}
@@ -445,69 +425,82 @@ const AdminApplicants = () => {
       </Dialog>
 
       {/* Bank Credentials Dialog */}
-      <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={isCredentialsOpen} onOpenChange={setIsCredentialsOpen}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Credenciales Bancarias</DialogTitle>
-            <DialogDescription>
-              Información bancaria del solicitante: {selectedApplicant?.first_name} {selectedApplicant?.last_name}
-            </DialogDescription>
+            <DialogTitle className="flex items-center space-x-2">
+              <CreditCard className="text-blue-600" size={24} />
+              <span>Credenciales Bancarias</span>
+            </DialogTitle>
           </DialogHeader>
-
+          
           {credentialsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="ml-3 text-gray-600">Cargando credenciales...</p>
-            </div>
-          ) : credentialsError ? (
-            <Alert className="border-red-200 bg-red-50">
-              <AlertCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
-                {credentialsError}
-              </AlertDescription>
-            </Alert>
-          ) : credentials.length === 0 ? (
             <div className="text-center py-8">
-              <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No hay credenciales bancarias registradas</p>
-              <p className="text-sm text-gray-500">El solicitante no ha conectado ningún banco</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Cargando credenciales...</p>
+            </div>
+          ) : applicantCredentials ? (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <h3 className="font-semibold text-blue-900">
+                  {applicantCredentials.applicant?.name || selectedApplicant?.name}
+                </h3>
+                <p className="text-sm text-blue-700">
+                  {applicantCredentials.applicant?.email || selectedApplicant?.email}
+                </p>
+              </div>
+
+              {applicantCredentials.credentials && applicantCredentials.credentials.length > 0 ? (
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-900">Bancos Conectados:</h4>
+                  {applicantCredentials.credentials.map((credential, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Building2 className="text-gray-400" size={20} />
+                          <div>
+                            <h5 className="font-semibold text-gray-900">
+                              {credential.provider_name}
+                            </h5>
+                            <p className="text-sm text-gray-600">
+                              Usuario: {credential.username}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Conectado: {formatDate(credential.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary">Conectado</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Building2 className="mx-auto text-gray-400 mb-3" size={32} />
+                  <p className="text-gray-600">No hay credenciales bancarias registradas</p>
+                  <p className="text-sm text-gray-500">
+                    El usuario aún no ha conectado ningún banco
+                  </p>
+                </div>
+              )}
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="flex items-center space-x-2">
+                  <Shield className="text-amber-600" size={16} />
+                  <span className="text-xs text-amber-700">
+                    Las credenciales están encriptadas y almacenadas de forma segura
+                  </span>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="grid gap-4">
-                {credentials.map((credential, index) => (
-                  <Card key={credential.id || index} className="border-l-4 border-l-blue-500">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{credential.provider_name}</CardTitle>
-                        <Badge variant="outline">Conectado</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium text-gray-700">Usuario</label>
-                          <p className="text-sm text-gray-900">{credential.username}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-700">Fecha de Conexión</label>
-                          <p className="text-sm text-gray-900">
-                            {new Date(credential.created_at).toLocaleDateString('es-MX')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                        <div className="flex items-center">
-                          <AlertCircle className="h-4 w-4 text-yellow-600 mr-2" />
-                          <p className="text-sm text-yellow-800">
-                            Las credenciales están encriptadas y almacenadas de forma segura
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+            <div className="text-center py-6">
+              <XCircle className="mx-auto text-red-400 mb-3" size={32} />
+              <p className="text-red-600">Error al cargar las credenciales</p>
+              <p className="text-sm text-gray-500">
+                No se pudieron obtener las credenciales bancarias
+              </p>
             </div>
           )}
         </DialogContent>
