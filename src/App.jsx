@@ -1,6 +1,6 @@
 /**
- * UPDATED App.jsx with proper routing
- * Replace the existing App.jsx with this version
+ * FIXED App.jsx with proper routing and imports
+ * This version ensures the bank-credentials route works correctly
  */
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -68,9 +68,6 @@ function App() {
             } />
             
             {/* Redirect root to dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            
-            {/* Catch all route - redirect to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
