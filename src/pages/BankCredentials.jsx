@@ -6,8 +6,34 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Trash2, Plus, Building2, Shield, CheckCircle, Eye, EyeOff, Lock } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
+
+// Simple toast replacement
+const showToast = (title, description, variant = 'default') => {
+  const toastType = variant === 'destructive' ? 'error' : 'success';
+  console.log(`${toastType.toUpperCase()}: ${title} - ${description}`);
+  
+  // Create a simple notification
+  const notification = document.createElement('div');
+  notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${
+    variant === 'destructive' 
+      ? 'bg-red-500 text-white' 
+      : 'bg-green-500 text-white'
+  }`;
+  notification.innerHTML = `
+    <div class="font-semibold">${title}</div>
+    <div class="text-sm opacity-90">${description}</div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 3000);
+};
 
 // Bank-specific modal components embedded directly to avoid import issues
 const BankSpecificModal = ({ bankId, bankName, isOpen, onClose, onSubmit, loading }) => {
@@ -225,7 +251,6 @@ const BankCredentials = () => {
   const [loading, setLoading] = useState(false);
   const [selectedBank, setSelectedBank] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { toast } = useToast();
 
   // Fallback banks data with proper IDs for modal mapping
   const fallbackBanks = [
@@ -335,11 +360,7 @@ const BankCredentials = () => {
 
   const handleCredentialSubmit = async (formData) => {
     if (!selectedBank) {
-      toast({
-        title: "Error",
-        description: "No se ha seleccionado un banco",
-        variant: "destructive",
-      });
+      showToast("Error", "No se ha seleccionado un banco", "destructive");
       return;
     }
 
@@ -358,21 +379,14 @@ const BankCredentials = () => {
       const response = await apiClient.post('/applicants/credentials', credentialData);
       console.log('Save credentials response:', response);
 
-      toast({
-        title: "¡Éxito!",
-        description: "Credenciales bancarias guardadas correctamente",
-      });
+      showToast("¡Éxito!", "Credenciales bancarias guardadas correctamente");
 
       setIsModalOpen(false);
       setSelectedBank(null);
       loadCredentials(); // Reload to show new credential
     } catch (error) {
       console.error('Error saving credentials:', error);
-      toast({
-        title: "Error",
-        description: `Error al guardar las credenciales: ${error.message}`,
-        variant: "destructive",
-      });
+      showToast("Error", `Error al guardar las credenciales: ${error.message}`, "destructive");
     } finally {
       setLoading(false);
     }
@@ -383,19 +397,12 @@ const BankCredentials = () => {
       console.log('Deleting credential:', credentialId);
       await apiClient.delete(`/applicants/credentials/${credentialId}`);
       
-      toast({
-        title: "¡Éxito!",
-        description: "Credenciales eliminadas correctamente",
-      });
+      showToast("¡Éxito!", "Credenciales eliminadas correctamente");
 
       loadCredentials(); // Reload to update list
     } catch (error) {
       console.error('Error deleting credential:', error);
-      toast({
-        title: "Error",
-        description: `Error al eliminar las credenciales: ${error.message}`,
-        variant: "destructive",
-      });
+      showToast("Error", `Error al eliminar las credenciales: ${error.message}`, "destructive");
     }
   };
 
